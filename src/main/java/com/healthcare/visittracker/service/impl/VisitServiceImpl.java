@@ -59,14 +59,4 @@ public class VisitServiceImpl implements VisitService {
 
         visitRepository.save(visit);
     }
-
-    @Override
-    public List<Visit> findLatestVisitsForPatient(Long patientId) {
-        return visitRepository.findLatestVisitsForPatient(patientId);
-    }
-
-    @Override
-    public List<Visit> findLatestVisitsForPatientByDoctorIds(Long patientId, List<Long> doctorIds) {
-        return visitRepository.findLatestVisitsForPatientByDoctorIds(patientId, doctorIds);
-    }
 }

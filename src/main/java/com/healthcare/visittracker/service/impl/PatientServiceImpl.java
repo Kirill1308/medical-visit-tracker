@@ -6,71 +6,101 @@ import com.healthcare.visittracker.dto.response.VisitResponse;
 import com.healthcare.visittracker.entity.Patient;
 import com.healthcare.visittracker.entity.Visit;
 import com.healthcare.visittracker.repository.PatientRepository;
-import com.healthcare.visittracker.service.DoctorService;
 import com.healthcare.visittracker.service.PatientService;
-import com.healthcare.visittracker.service.VisitService;
 import com.healthcare.visittracker.util.MapperUtil;
 import com.healthcare.visittracker.util.PaginationUtil;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
-import java.util.stream.Collectors;
+import java.util.Map;
+import java.util.function.Predicate;
 
 @Service
 @RequiredArgsConstructor
 public class PatientServiceImpl implements PatientService {
 
     private final PatientRepository patientRepository;
-    private final VisitService visitService;
-    private final DoctorService doctorService;
 
     @Override
+    @Transactional(readOnly = true)
     public PatientListResponse getAllPatients(Integer page, Integer size, String search, List<Long> doctorIds) {
-        System.out.println("We are here");
         Pageable pageable = PaginationUtil.createPageRequest(page, size);
 
-        Page<Patient> patientsPage;
-        Long totalCount;
+        Page<Patient> patientsPage = getPaginatedPatients(search, doctorIds, pageable);
+        long totalCount = patientsPage.getTotalElements();
 
-        if (doctorIds == null || doctorIds.isEmpty()) {
-            patientsPage = patientRepository.findAllWithFilters(search, pageable);
-            totalCount = patientsPage.getTotalElements();
-        } else {
-            patientsPage = patientRepository.findAllByDoctorIdsAndSearch(doctorIds, search, pageable);
-            totalCount = patientRepository.countByDoctorIdsAndSearch(doctorIds, search);
+        List<Long> patientIds = extractPatientIds(patientsPage);
+
+        if (patientIds.isEmpty()) {
+            return MapperUtil.toPatientListResponse(List.of(), totalCount);
         }
 
-        List<PatientResponse> patientResponses = patientsPage.getContent().stream()
-                .map(patient -> {
-                    List<Visit> latestVisits = getLatestVisits(patient.getId(), doctorIds);
+        List<Patient> patientsWithData = loadPatientsWithRelatedData(patientIds);
+        Map<Long, Integer> doctorPatientCounts = patientRepository.getDoctorPatientCounts();
 
-                    List<VisitResponse> visitResponses = latestVisits.stream()
-                            .map(visit -> {
-                                VisitResponse visitResponse = MapperUtil.toVisitResponse(visit);
-                                Integer totalPatients = doctorService.countTotalPatients(visit.getDoctor().getId());
-                                return MapperUtil.updateDoctorTotalPatients(visitResponse, totalPatients);
-                            })
-                            .toList();
-
-                    return PatientResponse.builder()
-                            .firstName(patient.getFirstName())
-                            .lastName(patient.getLastName())
-                            .lastVisits(visitResponses)
-                            .build();
-                })
-                .toList();
+        List<PatientResponse> patientResponses = buildPatientResponses(patientsWithData, doctorPatientCounts, doctorIds);
 
         return MapperUtil.toPatientListResponse(patientResponses, totalCount);
     }
 
-    private List<Visit> getLatestVisits(Long patientId, List<Long> doctorIds) {
+    private Page<Patient> getPaginatedPatients(String search, List<Long> doctorIds, Pageable pageable) {
         if (doctorIds == null || doctorIds.isEmpty()) {
-            return visitService.findLatestVisitsForPatient(patientId);
+            return patientRepository.findAllWithFilters(search, pageable);
         } else {
-            return visitService.findLatestVisitsForPatientByDoctorIds(patientId, doctorIds);
+            return patientRepository.findAllByDoctorIdsAndSearch(doctorIds, search, pageable);
         }
+    }
+
+    private List<Long> extractPatientIds(Page<Patient> patientsPage) {
+        return patientsPage.getContent().stream()
+                .map(Patient::getId)
+                .toList();
+    }
+
+    private List<Patient> loadPatientsWithRelatedData(List<Long> patientIds) {
+        return patientRepository.findPatientsByIdsWithVisitsAndDoctors(patientIds);
+    }
+
+    private List<PatientResponse> buildPatientResponses(
+            List<Patient> patients,
+            Map<Long, Integer> doctorPatientCounts,
+            List<Long> doctorIds) {
+
+        return patients.stream()
+                .map(patient -> buildPatientResponse(patient, doctorPatientCounts, doctorIds))
+                .toList();
+    }
+
+    private PatientResponse buildPatientResponse(
+            Patient patient,
+            Map<Long, Integer> doctorPatientCounts,
+            List<Long> doctorIds) {
+
+        List<VisitResponse> visitResponses = patient.getVisits().stream()
+                .filter(createDoctorFilter(doctorIds))
+                .map(visit -> createVisitResponse(visit, doctorPatientCounts))
+                .toList();
+
+        return PatientResponse.builder()
+                .firstName(patient.getFirstName())
+                .lastName(patient.getLastName())
+                .lastVisits(visitResponses)
+                .build();
+    }
+
+    private Predicate<Visit> createDoctorFilter(List<Long> doctorIds) {
+        return visit -> doctorIds == null ||
+                        doctorIds.isEmpty() ||
+                        doctorIds.contains(visit.getDoctor().getId());
+    }
+
+    private VisitResponse createVisitResponse(Visit visit, Map<Long, Integer> doctorPatientCounts) {
+        VisitResponse response = MapperUtil.toVisitResponse(visit);
+        Integer totalPatients = doctorPatientCounts.getOrDefault(visit.getDoctor().getId(), 0);
+        return MapperUtil.updateDoctorTotalPatients(response, totalPatients);
     }
 }

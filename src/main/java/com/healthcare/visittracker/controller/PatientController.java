@@ -24,7 +24,6 @@ public class PatientController {
             @RequestParam(required = false) Integer size,
             @RequestParam(required = false) String search,
             @RequestParam(required = false) String doctorIds) {
-        System.out.println("We are here");
         List<Long> doctorIdList = null;
 
         if (doctorIds != null && !doctorIds.isEmpty()) {

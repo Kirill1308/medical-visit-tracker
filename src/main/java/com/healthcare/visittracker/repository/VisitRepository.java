@@ -19,29 +19,4 @@ public interface VisitRepository extends JpaRepository<Visit, Long> {
             @Param("doctorId") Long doctorId,
             @Param("start") ZonedDateTime start,
             @Param("end") ZonedDateTime end);
-
-    @Query(value = "SELECT v.* FROM visits v " +
-                   "INNER JOIN ( " +
-                   "    SELECT patient_id, doctor_id, MAX(start_date_time) as max_start_time " +
-                   "    FROM visits " +
-                   "    GROUP BY patient_id, doctor_id " +
-                   ") as latest ON v.patient_id = latest.patient_id " +
-                   "AND v.doctor_id = latest.doctor_id " +
-                   "AND v.start_date_time = latest.max_start_time " +
-                   "WHERE v.patient_id = :patientId", nativeQuery = true)
-    List<Visit> findLatestVisitsForPatient(@Param("patientId") Long patientId);
-
-    @Query(value = "SELECT v.* FROM visits v " +
-                   "INNER JOIN ( " +
-                   "    SELECT patient_id, doctor_id, MAX(start_date_time) as max_start_time " +
-                   "    FROM visits " +
-                   "    WHERE doctor_id IN :doctorIds " +
-                   "    GROUP BY patient_id, doctor_id " +
-                   ") as latest ON v.patient_id = latest.patient_id " +
-                   "AND v.doctor_id = latest.doctor_id " +
-                   "AND v.start_date_time = latest.max_start_time " +
-                   "WHERE v.patient_id = :patientId", nativeQuery = true)
-    List<Visit> findLatestVisitsForPatientByDoctorIds(
-            @Param("patientId") Long patientId,
-            @Param("doctorIds") List<Long> doctorIds);
 }

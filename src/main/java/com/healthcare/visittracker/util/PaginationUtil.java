@@ -4,7 +4,6 @@ import lombok.AccessLevel;
 import lombok.AllArgsConstructor;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
-import org.springframework.data.domain.Sort;
 
 @AllArgsConstructor(access = AccessLevel.PRIVATE)
 public class PaginationUtil {
@@ -18,22 +17,5 @@ public class PaginationUtil {
         int pageSize = (size != null && size > 0) ? Math.min(size, MAX_SIZE) : DEFAULT_SIZE;
 
         return PageRequest.of(pageNumber, pageSize);
-    }
-
-    public static Pageable createPageRequest(Integer page, Integer size,
-                                             String sortProperty, Sort.Direction direction) {
-        int pageNumber = (page != null && page >= 0) ? page : DEFAULT_PAGE;
-        int pageSize = (size != null && size > 0) ? Math.min(size, MAX_SIZE) : DEFAULT_SIZE;
-
-        Sort sort = Sort.by(direction, sortProperty);
-        return PageRequest.of(pageNumber, pageSize, sort);
-    }
-
-    public static int calculateOffset(int page, int size) {
-        return page * size;
-    }
-
-    public static int calculateTotalPages(long totalItems, int pageSize) {
-        return (int) Math.ceil((double) totalItems / pageSize);
     }
 }
