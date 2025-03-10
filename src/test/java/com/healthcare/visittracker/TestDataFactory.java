@@ -11,6 +11,8 @@ import java.time.format.DateTimeFormatter;
 
 public class TestDataFactory {
 
+    private static final DateTimeFormatter UTC_FORMATTER = DateTimeFormatter.ofPattern("yyyy-MM-dd'T'HH:mm:ss'Z'");
+
     public static Doctor createDoctor() {
         return Doctor.builder()
                 .firstName("John")
@@ -50,8 +52,8 @@ public class TestDataFactory {
         ZonedDateTime end = start.plusHours(1);
 
         return VisitRequest.builder()
-                .start(start.format(DateTimeFormatter.ofPattern("yyyy-MM-dd'T'HH:mm:ss'Z'")))
-                .end(end.format(DateTimeFormatter.ofPattern("yyyy-MM-dd'T'HH:mm:ss'Z'")))
+                .start(start.format(UTC_FORMATTER))
+                .end(end.format(UTC_FORMATTER))
                 .doctorId(doctorId)
                 .patientId(patientId)
                 .build();
@@ -60,9 +62,9 @@ public class TestDataFactory {
     public static VisitRequest createVisitRequest(Long doctorId, Long patientId, ZonedDateTime start, ZonedDateTime end) {
         return VisitRequest.builder()
                 .start(start.withZoneSameInstant(ZoneId.of("UTC"))
-                        .format(DateTimeFormatter.ofPattern("yyyy-MM-dd'T'HH:mm:ss'Z'")))
+                        .format(UTC_FORMATTER))
                 .end(end.withZoneSameInstant(ZoneId.of("UTC"))
-                        .format(DateTimeFormatter.ofPattern("yyyy-MM-dd'T'HH:mm:ss'Z'")))
+                        .format(UTC_FORMATTER))
                 .doctorId(doctorId)
                 .patientId(patientId)
                 .build();
@@ -114,5 +116,4 @@ public class TestDataFactory {
 
         return new ZonedDateTime[]{start, end};
     }
-
 }
