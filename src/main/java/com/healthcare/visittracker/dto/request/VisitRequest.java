@@ -2,6 +2,7 @@ package com.healthcare.visittracker.dto.request;
 
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
+import jakarta.validation.constraints.Pattern;
 import jakarta.validation.constraints.Positive;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
@@ -15,10 +16,14 @@ import lombok.Setter;
 @NoArgsConstructor
 @AllArgsConstructor
 public class VisitRequest {
-    @NotBlank(message = "Start date and time is required")
+    @NotBlank(message = "Start time is required")
+    @Pattern(regexp = "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}Z$",
+            message = "Start time must be in ISO-8601 format with UTC timezone (YYYY-MM-DDThh:mm:ssZ)")
     private String start;
 
-    @NotBlank(message = "End date and time is required")
+    @NotBlank(message = "End time is required")
+    @Pattern(regexp = "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}Z$",
+            message = "End time must be in ISO-8601 format with UTC timezone (YYYY-MM-DDThh:mm:ssZ)")
     private String end;
 
     @NotNull(message = "Patient ID is required")

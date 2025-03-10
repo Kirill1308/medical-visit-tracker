@@ -42,7 +42,7 @@ public class TestDataFactory {
     }
 
     public static VisitRequest createVisitRequest(Long doctorId, Long patientId) {
-        ZonedDateTime start = ZonedDateTime.now(ZoneId.of("America/New_York"))
+        ZonedDateTime start = ZonedDateTime.now(ZoneId.of("UTC"))
                 .plusDays(1)
                 .withHour(10)
                 .withMinute(0)
@@ -50,8 +50,8 @@ public class TestDataFactory {
         ZonedDateTime end = start.plusHours(1);
 
         return VisitRequest.builder()
-                .start(start.format(DateTimeFormatter.ISO_ZONED_DATE_TIME))
-                .end(end.format(DateTimeFormatter.ISO_ZONED_DATE_TIME))
+                .start(start.format(DateTimeFormatter.ofPattern("yyyy-MM-dd'T'HH:mm:ss'Z'")))
+                .end(end.format(DateTimeFormatter.ofPattern("yyyy-MM-dd'T'HH:mm:ss'Z'")))
                 .doctorId(doctorId)
                 .patientId(patientId)
                 .build();
@@ -59,8 +59,10 @@ public class TestDataFactory {
 
     public static VisitRequest createVisitRequest(Long doctorId, Long patientId, ZonedDateTime start, ZonedDateTime end) {
         return VisitRequest.builder()
-                .start(start.format(DateTimeFormatter.ISO_ZONED_DATE_TIME))
-                .end(end.format(DateTimeFormatter.ISO_ZONED_DATE_TIME))
+                .start(start.withZoneSameInstant(ZoneId.of("UTC"))
+                        .format(DateTimeFormatter.ofPattern("yyyy-MM-dd'T'HH:mm:ss'Z'")))
+                .end(end.withZoneSameInstant(ZoneId.of("UTC"))
+                        .format(DateTimeFormatter.ofPattern("yyyy-MM-dd'T'HH:mm:ss'Z'")))
                 .doctorId(doctorId)
                 .patientId(patientId)
                 .build();
