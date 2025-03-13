@@ -17,5 +17,5 @@ import java.util.List;
 public class PatientListResponse {
     @Builder.Default
     private List<PatientResponse> data = new ArrayList<>();
-    private Integer count;
+    private Long count;
 }

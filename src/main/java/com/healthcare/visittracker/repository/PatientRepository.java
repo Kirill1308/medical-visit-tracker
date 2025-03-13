@@ -9,53 +9,58 @@ import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
 
 import java.util.List;
-import java.util.Map;
 
 @Repository
 public interface PatientRepository extends JpaRepository<Patient, Long> {
-    @Query(value = "SELECT DISTINCT p FROM Patient p " +
-                   "WHERE (:search IS NULL OR " +
-                   "LOWER(p.firstName) LIKE LOWER(CONCAT('%', :search, '%')) OR " +
-                   "LOWER(p.lastName) LIKE LOWER(CONCAT('%', :search, '%')))",
-            countQuery = "SELECT COUNT(DISTINCT p) FROM Patient p " +
-                         "WHERE (:search IS NULL OR " +
-                         "LOWER(p.firstName) LIKE LOWER(CONCAT('%', :search, '%')) OR " +
-                         "LOWER(p.lastName) LIKE LOWER(CONCAT('%', :search, '%')))")
-    Page<Patient> findAllWithFilters(@Param("search") String search, Pageable pageable);
 
-    @Query("SELECT DISTINCT p FROM Patient p " +
-           "LEFT JOIN FETCH p.visits v " +
-           "LEFT JOIN FETCH v.doctor d " +
-           "WHERE p.id IN :patientIds")
-    List<Patient> findPatientsByIdsWithVisitsAndDoctors(@Param("patientIds") List<Long> patientIds);
-
-    @Query(value = "SELECT DISTINCT p FROM Patient p " +
-                   "JOIN p.visits v " +
-                   "WHERE v.doctor.id IN :doctorIds " +
-                   "AND (:search IS NULL OR " +
-                   "LOWER(p.firstName) LIKE LOWER(CONCAT('%', :search, '%')) OR " +
-                   "LOWER(p.lastName) LIKE LOWER(CONCAT('%', :search, '%')))",
-            countQuery = "SELECT COUNT(DISTINCT p) FROM Patient p " +
-                         "JOIN p.visits v " +
-                         "WHERE v.doctor.id IN :doctorIds " +
-                         "AND (:search IS NULL OR " +
-                         "LOWER(p.firstName) LIKE LOWER(CONCAT('%', :search, '%')) OR " +
-                         "LOWER(p.lastName) LIKE LOWER(CONCAT('%', :search, '%')))")
-    Page<Patient> findAllByDoctorIdsAndSearch(
-            @Param("doctorIds") List<Long> doctorIds,
+    @Query(value = """
+            SELECT
+                p.id as patientId,
+                p.firstName as patientFirstName,
+                p.lastName as patientLastName,
+                v.id as visitId,
+                v.startDateTime as visitStart,
+                v.endDateTime as visitEnd,
+                d.id as doctorId,
+                d.firstName as doctorFirstName,
+                d.lastName as doctorLastName,
+                (SELECT COUNT(DISTINCT v2.patient.id) FROM Visit v2 WHERE v2.doctor = d) as doctorTotalPatients
+            FROM
+                Patient p
+            LEFT JOIN
+                p.visits v
+            LEFT JOIN
+                v.doctor d
+            WHERE
+                (:search IS NULL OR
+                p.firstName LIKE CONCAT('%', :search, '%') OR
+                p.lastName LIKE CONCAT('%', :search, '%'))
+                AND (
+                    (:doctorIdsEmpty = true) OR
+                    (d.id IN :doctorIds)
+                )
+            ORDER BY
+                p.lastName ASC,
+                p.firstName ASC,
+                v.startDateTime DESC
+            """,
+            countQuery = """
+                    SELECT COUNT(DISTINCT p)
+                    FROM Patient p
+                    LEFT JOIN p.visits v
+                    LEFT JOIN v.doctor d
+                    WHERE
+                        (:search IS NULL OR
+                        p.firstName LIKE CONCAT('%', :search, '%') OR
+                        p.lastName LIKE CONCAT('%', :search, '%'))
+                        AND (
+                            (:doctorIdsEmpty = true) OR
+                            (d.id IN :doctorIds)
+                        )
+                    """)
+    Page<Object[]> findPatientsWithLastVisit(
             @Param("search") String search,
+            @Param("doctorIds") List<Long> doctorIds,
+            @Param("doctorIdsEmpty") Boolean doctorIdsEmpty,
             Pageable pageable);
-
-    @Query("SELECT v.doctor.id as doctorId, COUNT(DISTINCT v.patient.id) as patientCount " +
-           "FROM Visit v GROUP BY v.doctor.id")
-    List<Object[]> getDoctorPatientCountsList();
-
-    default Map<Long, Integer> getDoctorPatientCounts() {
-        List<Object[]> results = getDoctorPatientCountsList();
-        return results.stream()
-                .collect(java.util.stream.Collectors.toMap(
-                        row -> (Long) row[0],  // doctorId
-                        row -> ((Number) row[1]).intValue()  // patientCount
-                ));
-    }
 }

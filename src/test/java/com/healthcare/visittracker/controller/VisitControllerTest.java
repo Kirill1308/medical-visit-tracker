@@ -9,7 +9,6 @@ import com.healthcare.visittracker.entity.Visit;
 import com.healthcare.visittracker.repository.DoctorRepository;
 import com.healthcare.visittracker.repository.PatientRepository;
 import com.healthcare.visittracker.repository.VisitRepository;
-import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -51,13 +50,6 @@ class VisitControllerTest extends BaseTest {
 
         doctor = doctorRepository.save(TestDataFactory.createDoctor());
         patient = patientRepository.save(TestDataFactory.createPatient());
-    }
-
-    @AfterEach
-    void tearDown() {
-        visitRepository.deleteAll();
-        patientRepository.deleteAll();
-        doctorRepository.deleteAll();
     }
 
     @Test

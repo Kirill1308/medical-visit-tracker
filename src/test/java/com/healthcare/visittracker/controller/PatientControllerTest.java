@@ -2,13 +2,9 @@ package com.healthcare.visittracker.controller;
 
 import com.healthcare.visittracker.BaseTest;
 import com.healthcare.visittracker.dto.response.PatientListResponse;
+import com.healthcare.visittracker.dto.response.PatientResponse;
 import com.healthcare.visittracker.entity.Doctor;
-import com.healthcare.visittracker.entity.Patient;
-import com.healthcare.visittracker.entity.Visit;
 import com.healthcare.visittracker.repository.DoctorRepository;
-import com.healthcare.visittracker.repository.PatientRepository;
-import com.healthcare.visittracker.repository.VisitRepository;
-import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -17,8 +13,9 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.util.UriComponentsBuilder;
 
-import java.time.ZoneId;
 import java.time.ZonedDateTime;
+import java.util.List;
+import java.util.Optional;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
@@ -28,102 +25,32 @@ class PatientControllerTest extends BaseTest {
     private TestRestTemplate restTemplate;
 
     @Autowired
-    private PatientRepository patientRepository;
-
-    @Autowired
     private DoctorRepository doctorRepository;
 
-    @Autowired
-    private VisitRepository visitRepository;
-
     private String baseUrl;
+    private Long doctor1Id;
+    private Long doctor2Id;
+    private Long doctor3Id;
 
     @BeforeEach
     void setUp() {
         baseUrl = "http://localhost:" + port + "/api";
-        // Clean up database
-        visitRepository.deleteAll();
-        patientRepository.deleteAll();
-        doctorRepository.deleteAll();
 
-        // Setup test data
-        setupTestData();
-    }
+        doctor1Id = doctorRepository.findByFirstNameAndLastName("John", "Smith")
+                .map(Doctor::getId)
+                .orElseThrow(() -> new RuntimeException("Test data not properly initialized"));
 
-    @AfterEach
-    void tearDown() {
-        // Clean up after each test
-        visitRepository.deleteAll();
-        patientRepository.deleteAll();
-        doctorRepository.deleteAll();
-    }
+        doctor2Id = doctorRepository.findByFirstNameAndLastName("Mary", "Johnson")
+                .map(Doctor::getId)
+                .orElseThrow(() -> new RuntimeException("Test data not properly initialized"));
 
-    private void setupTestData() {
-        // Create doctors
-        Doctor doctor1 = doctorRepository.save(Doctor.builder()
-                .firstName("John")
-                .lastName("Smith")
-                .timezone("America/New_York")
-                .build());
-
-        Doctor doctor2 = doctorRepository.save(Doctor.builder()
-                .firstName("Mary")
-                .lastName("Johnson")
-                .timezone("America/Chicago")
-                .build());
-
-        // Create patients
-        Patient patient1 = patientRepository.save(Patient.builder()
-                .firstName("Alice")
-                .lastName("Brown")
-                .build());
-
-        Patient patient2 = patientRepository.save(Patient.builder()
-                .firstName("Bob")
-                .lastName("White")
-                .build());
-
-        Patient patient3 = patientRepository.save(Patient.builder()
-                .firstName("Carol")
-                .lastName("Davis")
-                .build());
-
-        // Create visits
-        ZonedDateTime now = ZonedDateTime.now(ZoneId.of("UTC"));
-
-        // Visits for doctor1
-        visitRepository.save(Visit.builder()
-                .doctor(doctor1)
-                .patient(patient1)
-                .startDateTime(now.minusDays(5))
-                .endDateTime(now.minusDays(5).plusHours(1))
-                .build());
-
-        visitRepository.save(Visit.builder()
-                .doctor(doctor1)
-                .patient(patient2)
-                .startDateTime(now.minusDays(3))
-                .endDateTime(now.minusDays(3).plusHours(1))
-                .build());
-
-        // Visits for doctor2
-        visitRepository.save(Visit.builder()
-                .doctor(doctor2)
-                .patient(patient2)
-                .startDateTime(now.minusDays(2))
-                .endDateTime(now.minusDays(2).plusHours(1))
-                .build());
-
-        visitRepository.save(Visit.builder()
-                .doctor(doctor2)
-                .patient(patient3)
-                .startDateTime(now.minusDays(1))
-                .endDateTime(now.minusDays(1).plusHours(1))
-                .build());
+        doctor3Id = doctorRepository.findByFirstNameAndLastName("David", "Lee")
+                .map(Doctor::getId)
+                .orElseThrow(() -> new RuntimeException("Test data not properly initialized"));
     }
 
     @Test
-    void getAllPatientsWithNoFilters() {
+    void shouldReturnOrderedVisitsPerPatient() {
         String url = baseUrl + "/patients";
 
         ResponseEntity<PatientListResponse> response = restTemplate.getForEntity(
@@ -131,15 +58,89 @@ class PatientControllerTest extends BaseTest {
 
         assertThat(response.getStatusCode()).isEqualTo(HttpStatus.OK);
         assertThat(response.getBody()).isNotNull();
-        assertThat(response.getBody().getData()).hasSize(3);
-        assertThat(response.getBody().getCount()).isEqualTo(3);
+
+        // Find Alice and check her visits
+        Optional<PatientResponse> aliceOpt = response.getBody().getData().stream()
+                .filter(p -> p.getFirstName().equals("Alice"))
+                .findFirst();
+
+        assertThat(aliceOpt).isPresent();
+        PatientResponse alice = aliceOpt.get();
+
+        assertThat(alice.getLastVisits()).hasSize(3);
+        assertThat(alice.getLastVisits().get(0).getDoctor().getFirstName()).isEqualTo("John");
+        assertThat(alice.getLastVisits().get(1).getDoctor().getFirstName()).isEqualTo("Mary");
+        assertThat(alice.getLastVisits().get(2).getDoctor().getFirstName()).isEqualTo("David");
+
+        // Find Bob and check his visits
+        Optional<PatientResponse> bobOpt = response.getBody().getData().stream()
+                .filter(p -> p.getFirstName().equals("Bob"))
+                .findFirst();
+
+        assertThat(bobOpt).isPresent();
+        PatientResponse bob = bobOpt.get();
+
+        assertThat(bob.getLastVisits()).hasSize(2);
+        assertThat(bob.getLastVisits().get(0).getDoctor().getFirstName()).isEqualTo("Mary");
+        assertThat(bob.getLastVisits().get(1).getDoctor().getFirstName()).isEqualTo("Mary");
+
+        // The first visit's date should be more recent than the second
+        ZonedDateTime firstVisitDate = ZonedDateTime.parse(bob.getLastVisits().get(0).getStart());
+        ZonedDateTime secondVisitDate = ZonedDateTime.parse(bob.getLastVisits().get(1).getStart());
+        assertThat(firstVisitDate).isAfter(secondVisitDate);
     }
 
     @Test
-    void getAllPatientsWithPagination() {
+    void shouldReturnCorrectDoctorTotalPatients() {
+        String url = baseUrl + "/patients";
+
+        ResponseEntity<PatientListResponse> response = restTemplate.getForEntity(
+                url, PatientListResponse.class);
+
+        assertThat(response.getStatusCode()).isEqualTo(HttpStatus.OK);
+        assertThat(response.getBody()).isNotNull();
+
+        List<PatientResponse> patients = response.getBody().getData();
+
+        // Find Alice's visits to verify doctor counts
+        Optional<PatientResponse> aliceOpt = patients.stream()
+                .filter(p -> p.getFirstName().equals("Alice"))
+                .findFirst();
+
+        assertThat(aliceOpt).isPresent();
+        PatientResponse alice = aliceOpt.get();
+
+        // Check doctor counts in Alice's visits
+
+        // Find John's visit and check count
+        Optional<Integer> doctor1Patients = alice.getLastVisits().stream()
+                .filter(v -> v.getDoctor().getFirstName().equals("John"))
+                .map(v -> v.getDoctor().getTotalPatients())
+                .findFirst();
+
+        assertThat(doctor1Patients).contains(1);
+
+        // Find Mary's visit and check count
+        Optional<Integer> doctor2Patients = alice.getLastVisits().stream()
+                .filter(v -> v.getDoctor().getFirstName().equals("Mary"))
+                .map(v -> v.getDoctor().getTotalPatients())
+                .findFirst();
+
+        assertThat(doctor2Patients).contains(2);
+
+        // Find David's visit and check count
+        Optional<Integer> doctor3Patients = alice.getLastVisits().stream()
+                .filter(v -> v.getDoctor().getFirstName().equals("David"))
+                .map(v -> v.getDoctor().getTotalPatients())
+                .findFirst();
+
+        assertThat(doctor3Patients).contains(2);
+    }
+
+    @Test
+    void shouldHandleMultipleDoctorIdsFilter() {
         String url = UriComponentsBuilder.fromUriString(baseUrl + "/patients")
-                .queryParam("page", 0)
-                .queryParam("size", 2)
+                .queryParam("doctorIds", doctor1Id + "," + doctor3Id)
                 .toUriString();
 
         ResponseEntity<PatientListResponse> response = restTemplate.getForEntity(
@@ -147,14 +148,33 @@ class PatientControllerTest extends BaseTest {
 
         assertThat(response.getStatusCode()).isEqualTo(HttpStatus.OK);
         assertThat(response.getBody()).isNotNull();
+
         assertThat(response.getBody().getData()).hasSize(2);
-        assertThat(response.getBody().getCount()).isEqualTo(3);
+
+        // For Alice, should have visits with both doctor1 and doctor3
+        Optional<PatientResponse> aliceOpt = response.getBody().getData().stream()
+                .filter(p -> p.getFirstName().equals("Alice"))
+                .findFirst();
+
+        assertThat(aliceOpt).isPresent();
+        PatientResponse alice = aliceOpt.get();
+
+        // Alice should have 2 visits (one with John, one with David)
+        assertThat(alice.getLastVisits()).hasSize(2);
+
+        // Verify doctor names are either John (doctor1) or David (doctor3)
+        List<String> doctorNames = alice.getLastVisits().stream()
+                .map(v -> v.getDoctor().getFirstName())
+                .toList();
+
+        assertThat(doctorNames).containsExactlyInAnyOrder("John", "David");
     }
 
     @Test
-    void getAllPatientsWithSearch() {
+    void shouldHandlePatientWithNoVisits() {
+        // There should be one patient (Dan) with no visits
         String url = UriComponentsBuilder.fromUriString(baseUrl + "/patients")
-                .queryParam("search", "Al") // Should match "Alice"
+                .queryParam("search", "Dan")
                 .toUriString();
 
         ResponseEntity<PatientListResponse> response = restTemplate.getForEntity(
@@ -163,17 +183,18 @@ class PatientControllerTest extends BaseTest {
         assertThat(response.getStatusCode()).isEqualTo(HttpStatus.OK);
         assertThat(response.getBody()).isNotNull();
         assertThat(response.getBody().getData()).hasSize(1);
-        assertThat(response.getBody().getData().get(0).getFirstName()).isEqualTo("Alice");
+
+        PatientResponse patient = response.getBody().getData().get(0);
+        assertThat(patient.getFirstName()).isEqualTo("Dan");
+        assertThat(patient.getLastVisits()).isEmpty();
     }
 
     @Test
-    void getAllPatientsWithDoctorFilter() {
-        Long doctor1Id = doctorRepository.findByFirstNameAndLastName("John", "Smith")
-                .map(Doctor::getId)
-                .orElseThrow();
-
+    void shouldHandleComplexSearchCriteria() {
+        // Search for patients with 'a' in their name who visited doctor2 or doctor3
         String url = UriComponentsBuilder.fromUriString(baseUrl + "/patients")
-                .queryParam("doctorIds", doctor1Id)
+                .queryParam("search", "a")
+                .queryParam("doctorIds", doctor2Id + "," + doctor3Id)
                 .toUriString();
 
         ResponseEntity<PatientListResponse> response = restTemplate.getForEntity(
@@ -181,25 +202,22 @@ class PatientControllerTest extends BaseTest {
 
         assertThat(response.getStatusCode()).isEqualTo(HttpStatus.OK);
         assertThat(response.getBody()).isNotNull();
-        assertThat(response.getBody().getData()).hasSize(2); // Alice and Bob visited John Smith
 
-        response.getBody().getData().forEach(patient -> {
-            assertThat(patient.getLastVisits()).hasSize(1);
-            assertThat(patient.getLastVisits().get(0).getDoctor().getFirstName()).isEqualTo("John");
-        });
+        // Should match Alice (visited doctor2) and Carol (visited doctor3)
+        assertThat(response.getBody().getData()).hasSize(2);
+
+        List<String> names = response.getBody().getData().stream()
+                .map(PatientResponse::getFirstName)
+                .toList();
+
+        assertThat(names).containsExactlyInAnyOrder("Alice", "Carol");
     }
 
     @Test
-    void getAllPatientsWithCombinedFilters() {
-        Long doctor2Id = doctorRepository.findByFirstNameAndLastName("Mary", "Johnson")
-                .map(Doctor::getId)
-                .orElseThrow();
-
+    void shouldHandleEmptyResults() {
+        // Search for a non-existent patient
         String url = UriComponentsBuilder.fromUriString(baseUrl + "/patients")
-                .queryParam("search", "o") // Matches "Bob" and "Carol"
-                .queryParam("doctorIds", doctor2Id)
-                .queryParam("page", 0)
-                .queryParam("size", 1) // Limit to 1 result
+                .queryParam("search", "NonExistent")
                 .toUriString();
 
         ResponseEntity<PatientListResponse> response = restTemplate.getForEntity(
@@ -207,10 +225,7 @@ class PatientControllerTest extends BaseTest {
 
         assertThat(response.getStatusCode()).isEqualTo(HttpStatus.OK);
         assertThat(response.getBody()).isNotNull();
-        assertThat(response.getBody().getData()).hasSize(1); // Only one due to pagination
-        assertThat(response.getBody().getCount()).isEqualTo(2); // Should match both Bob and Carol
-
-        String firstName = response.getBody().getData().get(0).getFirstName();
-        assertThat(firstName).isIn("Bob", "Carol");
+        assertThat(response.getBody().getData()).isEmpty();
+        assertThat(response.getBody().getCount()).isZero();
     }
 }
