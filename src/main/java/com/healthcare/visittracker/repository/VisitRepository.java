@@ -19,4 +19,6 @@ public interface VisitRepository extends JpaRepository<Visit, Long> {
             @Param("doctorId") Long doctorId,
             @Param("start") ZonedDateTime start,
             @Param("end") ZonedDateTime end);
+
+    List<Visit> findByPatientIdIn(List<Long> patientIds);
 }

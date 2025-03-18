@@ -13,13 +13,17 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.util.UriComponentsBuilder;
 
-import java.time.ZonedDateTime;
+import java.time.LocalDateTime;
+import java.time.format.DateTimeFormatter;
 import java.util.List;
 import java.util.Optional;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
 class PatientControllerTest extends BaseTest {
+
+    private static final DateTimeFormatter formatter = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss.S");
+
 
     @Autowired
     private TestRestTemplate restTemplate;
@@ -85,8 +89,8 @@ class PatientControllerTest extends BaseTest {
         assertThat(bob.getLastVisits().get(1).getDoctor().getFirstName()).isEqualTo("Mary");
 
         // The first visit's date should be more recent than the second
-        ZonedDateTime firstVisitDate = ZonedDateTime.parse(bob.getLastVisits().get(0).getStart());
-        ZonedDateTime secondVisitDate = ZonedDateTime.parse(bob.getLastVisits().get(1).getStart());
+        LocalDateTime firstVisitDate = LocalDateTime.parse(bob.getLastVisits().get(0).getStart(), formatter);
+        LocalDateTime secondVisitDate = LocalDateTime.parse(bob.getLastVisits().get(1).getStart(), formatter);
         assertThat(firstVisitDate).isAfter(secondVisitDate);
     }
 
