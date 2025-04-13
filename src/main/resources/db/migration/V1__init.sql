@@ -20,8 +20,8 @@ CREATE TABLE doctors
 CREATE TABLE visits
 (
     id              BIGINT AUTO_INCREMENT PRIMARY KEY,
-    start_date_time DATETIME NOT NULL,
-    end_date_time   DATETIME NOT NULL,
+    start_date_time TIMESTAMP NOT NULL,
+    end_date_time   TIMESTAMP NOT NULL,
     patient_id      BIGINT   NOT NULL,
     doctor_id       BIGINT   NOT NULL,
     created_at      TIMESTAMP DEFAULT CURRENT_TIMESTAMP,

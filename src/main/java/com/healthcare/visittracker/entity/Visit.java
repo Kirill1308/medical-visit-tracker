@@ -14,7 +14,7 @@ import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
 
-import java.time.ZonedDateTime;
+import java.time.Instant;
 
 @Entity
 @Table(name = "visits")
@@ -29,10 +29,10 @@ public class Visit {
     private Long id;
 
     @Column(nullable = false)
-    private ZonedDateTime startDateTime;
+    private Instant startDateTime;
 
     @Column(nullable = false)
-    private ZonedDateTime endDateTime;
+    private Instant endDateTime;
 
     @ManyToOne
     @JoinColumn(name = "patient_id", nullable = false)

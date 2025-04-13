@@ -111,11 +111,11 @@ public class GlobalExceptionHandler {
 
     @ExceptionHandler(Exception.class)
     public ResponseEntity<ApiError> handleAllUncaughtException(
-            HttpServletRequest request
+            HttpServletRequest request, Exception ex
     ) {
         ApiError apiError = ApiError.builder()
                 .path(request.getRequestURI())
-                .message("An unexpected error occurred")
+                .message("An unexpected error occurred: " + ex.getMessage())
                 .statusCode(ErrorCode.INTERNAL_ERROR.getStatus().value())
                 .statusName(ErrorCode.INTERNAL_ERROR.getStatus().name())
                 .timestamp(LocalDateTime.now())

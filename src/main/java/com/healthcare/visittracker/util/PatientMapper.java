@@ -8,6 +8,8 @@ import com.healthcare.visittracker.dto.response.VisitResponse;
 import org.springframework.data.domain.Page;
 import org.springframework.stereotype.Component;
 
+import java.time.Instant;
+import java.time.ZoneId;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -53,9 +55,17 @@ public class PatientMapper {
     }
 
     private VisitResponse toVisitResponse(PatientProjection projection, DoctorResponse doctorResponse) {
+        ZoneId doctorZoneId = ZoneId.of(projection.getDoctorTimezone());
+
+        Instant startInstant = projection.getVisitStartDateTime();
+        Instant endInstant = projection.getVisitEndDateTime();
+
+        String formattedStart = DateTimeUtil.formatWithOffset(startInstant, doctorZoneId);
+        String formattedEnd = DateTimeUtil.formatWithOffset(endInstant, doctorZoneId);
+
         return VisitResponse.builder()
-                .start(projection.getVisitStartDateTime())
-                .end(projection.getVisitEndDateTime())
+                .start(formattedStart)
+                .end(formattedEnd)
                 .doctor(doctorResponse)
                 .build();
     }

@@ -12,12 +12,12 @@ import com.healthcare.visittracker.repository.PatientRepository;
 import com.healthcare.visittracker.repository.VisitRepository;
 import com.healthcare.visittracker.service.VisitService;
 import com.healthcare.visittracker.util.DateTimeUtil;
-import com.healthcare.visittracker.util.ValidationUtil;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-import java.time.ZonedDateTime;
+import java.time.Instant;
+import java.time.ZoneId;
 import java.util.List;
 
 @Service
@@ -37,22 +37,23 @@ public class VisitServiceImpl implements VisitService {
         Patient patient = patientRepository.findById(request.getPatientId())
                 .orElseThrow(() -> new ResourceNotFoundException("Patient not found with ID: " + request.getPatientId()));
 
-        ZonedDateTime startDateTime = DateTimeUtil.parseDateTime(request.getStart());
-        ZonedDateTime endDateTime = DateTimeUtil.parseDateTime(request.getEnd());
+        Instant startInstant = DateTimeUtil.parseToInstant(request.getStart(), ZoneId.of("UTC"));
+        Instant endInstant = DateTimeUtil.parseToInstant(request.getEnd(), ZoneId.of("UTC"));
 
-        if (!ValidationUtil.validateTimeRange(startDateTime, endDateTime)) {
+        if (endInstant.isBefore(startInstant) || endInstant.equals(startInstant)) {
             throw new InvalidTimezoneException("End time must be after start time");
         }
 
-        List<Visit> overlappingVisits = visitRepository.findOverlappingVisits(doctor.getId(), startDateTime, endDateTime);
+        List<Visit> overlappingVisits = visitRepository.findOverlappingVisits(
+                doctor.getId(), startInstant, endInstant);
 
         if (!overlappingVisits.isEmpty()) {
             throw new VisitConflictException("Doctor already has a visit scheduled during this time");
         }
 
         Visit visit = Visit.builder()
-                .startDateTime(startDateTime)
-                .endDateTime(endDateTime)
+                .startDateTime(startInstant)
+                .endDateTime(endInstant)
                 .doctor(doctor)
                 .patient(patient)
                 .build();
